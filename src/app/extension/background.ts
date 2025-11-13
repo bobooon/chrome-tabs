@@ -1,8 +1,8 @@
 import type { Settings } from './settings.ts'
-import { defaultSettings } from './settings.ts'
+import { getDefaultSettings } from './settings.ts'
 
 async function getSettings() {
-  return (await chrome.storage.local.get(['settings'])).settings as Settings || structuredClone(defaultSettings)
+  return (await chrome.storage.local.get(['settings'])).settings as Settings || getDefaultSettings()
 }
 
 async function saveSettings(settings: Settings) {
@@ -39,8 +39,7 @@ async function closeTab() {
     return
 
   try {
-    const tabs = window.tabs.filter(b => !b.pinned && b.groupId === -1 && b.id !== tab.id)
-    if (!tabs.length)
+    if (window.tabs.length === 1)
       await chrome.tabs.create({})
     await chrome.tabs.remove(tab.id)
   }
@@ -58,11 +57,12 @@ chrome.runtime.onMessage.addListener((message, _sender, response) => {
       return true
 
     case 'saveSettings':
-      saveSettings(message.payload)
-      return false
+      saveSettings(message.payload).then(() => response(true))
+      return true
   }
 })
 
+// Watch for close command shortcut.
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'close')
     await closeTab()

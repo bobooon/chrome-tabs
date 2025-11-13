@@ -1,33 +1,46 @@
-import { Box, Button, DropdownMenu, Flex, Separator, Text } from '@radix-ui/themes'
+import { Box, Button, Callout, DropdownMenu, Flex, Separator, Text } from '@radix-ui/themes'
 import { useEffect, useReducer, useState } from 'react'
 import { api } from '../extension/api.ts'
-import { defaultSettings } from '../extension/settings.ts'
+import { getDefaultSettings } from '../extension/settings.ts'
 import { pageReducer } from './reducer.ts'
-import { UiSwitch, UiTooltip } from './ui.tsx'
+import { UiSwitch } from './ui.tsx'
 import './page.css'
 
 export default function Page() {
-  const [state, dispatch] = useReducer(pageReducer, { settings: structuredClone(defaultSettings) })
+  const [ready, setReady] = useState(false)
+  const [state, dispatch] = useReducer(pageReducer, { settings: getDefaultSettings() })
   const [shortcut, setShortcut] = useState('')
 
   useEffect(() => {
     (async () => {
-      dispatch({ type: 'getSettings', value: await api.getSettings() })
-      setShortcut((await api.getCommands())[1].shortcut || '')
+      if (!ready) {
+        dispatch({ type: 'setSettings', value: await api.getSettings() })
+        setReady(true)
+
+        const commands = await api.getCommands()
+        setShortcut(commands.find(cmd => cmd.name === 'close')?.shortcut || '')
+      }
+      else {
+        await api.saveSettings(state.settings)
+      }
     })()
-  }, [])
+  }, [ready, state.settings])
+
+  if (!ready)
+    return <Box p="5" className="wrapper" />
+
+  const { settings } = state
+  const id = typeof chrome.runtime !== 'undefined' ? chrome.runtime.id : ''
 
   return (
-    <Box p="5" width="400px">
-      <Flex direction="column" gap="3">
-        <Flex asChild align="center" gap="2" width="100%">
+    <Flex p="5" direction="column" gap="3" className="wrapper">
+      <Callout.Root variant="surface" color={shortcut ? 'green' : 'red'} size="1" mb="3" style={{ display: 'block' }}>
+        <Flex asChild align="center" gap="2">
           <Text as="label" size="2">
-            <UiTooltip content={api.getMessage('shortcutHelp')} />
             <Text style={{ flexGrow: 1 }}>{api.getMessage('shortcut')}</Text>
             <Button
+              variant="classic"
               size="1"
-              variant="soft"
-              color={shortcut ? 'green' : 'red'}
               style={{ height: '20px' }}
               onClick={() => api.createTab('chrome://extensions/shortcuts')}
             >
@@ -35,55 +48,51 @@ export default function Page() {
             </Button>
           </Text>
         </Flex>
+      </Callout.Root>
 
-        <Box my="3" mx="-5">
-          <Separator size="4" />
-        </Box>
+      <UiSwitch
+        label={api.getMessage('preservePinned')}
+        tooltip={api.getMessage('preservePinnedHelp')}
+        checked={settings.preservePinned}
+        onCheckedChange={value => dispatch({ type: 'setPreservePinned', value })}
+        disabled={!shortcut}
+      />
+      <UiSwitch
+        label={api.getMessage('preserveGrouped')}
+        tooltip={api.getMessage('preserveGroupedHelp')}
+        checked={settings.preserveGrouped}
+        onCheckedChange={value => dispatch({ type: 'setPreserveGrouped', value })}
+        disabled={!shortcut}
+      />
+      <UiSwitch
+        label={api.getMessage('preserveEmpty')}
+        tooltip={api.getMessage('preserveEmptyHelp')}
+        checked={settings.preserveEmpty}
+        onCheckedChange={value => dispatch({ type: 'setPreserveEmpty', value })}
+        disabled={!shortcut}
+      />
 
-        <UiSwitch
-          label={api.getMessage('preservePinned')}
-          tooltip={api.getMessage('preservePinnedHelp')}
-          checked={state.settings.preservePinned}
-          onCheckedChange={value => dispatch({ type: 'setPreservePinned', value })}
-          disabled={!shortcut}
-        />
-        <UiSwitch
-          label={api.getMessage('preserveGrouped')}
-          tooltip={api.getMessage('preserveGroupedHelp')}
-          checked={state.settings.preserveGrouped}
-          onCheckedChange={value => dispatch({ type: 'setPreserveGrouped', value })}
-          disabled={!shortcut}
-        />
-        <UiSwitch
-          label={api.getMessage('preserveEmpty')}
-          tooltip={api.getMessage('preserveEmptyHelp')}
-          checked={state.settings.preserveEmpty}
-          onCheckedChange={value => dispatch({ type: 'setPreserveEmpty', value })}
-          disabled={!shortcut}
-        />
+      <Box my="3" mx="-5">
+        <Separator size="4" />
+      </Box>
 
-        <Box my="3" mx="-5">
-          <Separator size="4" />
-        </Box>
+      <DropdownMenu.Root>
+        <DropdownMenu.Trigger>
+          <Button variant="soft">
+            {api.getMessage('advanced')}
+            <DropdownMenu.TriggerIcon />
+          </Button>
+        </DropdownMenu.Trigger>
 
-        <DropdownMenu.Root>
-          <DropdownMenu.Trigger>
-            <Button variant="soft">
-              {api.getMessage('advanced')}
-              <DropdownMenu.TriggerIcon />
-            </Button>
-          </DropdownMenu.Trigger>
-
-          <DropdownMenu.Content>
-            <DropdownMenu.Item onClick={() => api.createTab(`chrome://extensions/?id=${chrome?.runtime?.id}`)}>
-              {api.getMessage('extensionInfo')}
-            </DropdownMenu.Item>
-            <DropdownMenu.Item onClick={() => api.createTab('chrome://extensions/shortcuts')}>
-              {api.getMessage('extensionShortcuts')}
-            </DropdownMenu.Item>
-          </DropdownMenu.Content>
-        </DropdownMenu.Root>
-      </Flex>
-    </Box>
+        <DropdownMenu.Content>
+          <DropdownMenu.Item onClick={() => api.createTab(`chrome://extensions/?id=${id}`)}>
+            {api.getMessage('extensionInfo')}
+          </DropdownMenu.Item>
+          <DropdownMenu.Item onClick={() => api.createTab('chrome://extensions/shortcuts')}>
+            {api.getMessage('extensionShortcuts')}
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Root>
+    </Flex>
   )
 }

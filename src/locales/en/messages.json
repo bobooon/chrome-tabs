@@ -9,7 +9,7 @@
     "message": "Close the tab"
   },
   "shortcut": {
-    "message": "Assigned keyboard shortcut"
+    "message": "Keyboard shortcut"
   },
   "shortcutHelp": {
     "message": "Change the close tab keyboard shortcut."
@@ -33,7 +33,7 @@
     "message": "Preserve empty tabs"
   },
   "preserveEmptyHelp": {
-    "message": "Prevent empty tabs from being closed."
+    "message": "Allow opening multiple empty new tabs."
   },
   "advanced": {
     "message": "Advanced"
